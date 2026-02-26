@@ -1,1 +1,73 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Video Compressor</title>
+</head>
+<body>
 
+<h2>Local Video Compressor</h2>
+
+<input type="file" id="upload" accept="video/*">
+<button onclick="compress()">Стиснути</button>
+
+<p id="status"></p>
+<a id="download" style="display:none;">Завантажити</a>
+
+<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.6/dist/ffmpeg.min.js"></script>
+
+<script>
+const { createFFmpeg, fetchFile } = FFmpeg;
+
+const ffmpeg = createFFmpeg({
+  log: true
+});
+
+async function compress() {
+  const input = document.getElementById("upload");
+  const status = document.getElementById("status");
+  const download = document.getElementById("download");
+
+  if (!input.files.length) {
+    alert("Оберіть відео");
+    return;
+  }
+
+  status.innerText = "Завантаження движка...";
+
+  if (!ffmpeg.isLoaded()) {
+    await ffmpeg.load();
+  }
+
+  status.innerText = "Стиснення...";
+
+  const file = input.files[0];
+
+  ffmpeg.FS("writeFile", "input.mp4", await fetchFile(file));
+
+  await ffmpeg.run(
+    "-i", "input.mp4",
+    "-vcodec", "libx264",
+    "-crf", "28",
+    "-preset", "veryfast",
+    "output.mp4"
+  );
+
+  const data = ffmpeg.FS("readFile", "output.mp4");
+
+  const url = URL.createObjectURL(
+    new Blob([data.buffer], { type: "video/mp4" })
+  );
+
+  download.href = url;
+  download.download = "compressed.mp4";
+  download.style.display = "block";
+  download.innerText = "Завантажити відео";
+
+  status.innerText = "Готово!";
+}
+</script>
+
+</body>
+</html>
