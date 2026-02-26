@@ -4,6 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Video Compressor</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    #log { white-space: pre-wrap; background: #f0f0f0; padding: 10px; margin-top: 10px; max-height: 300px; overflow-y: auto; }
+  </style>
 </head>
 <body>
 
@@ -15,23 +19,35 @@
 <p id="status"></p>
 <a id="download" style="display:none;">Завантажити</a>
 
+<pre id="log"></pre>
+
 <!-- Стабільна версія для iPhone -->
 <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
 
 <script>
 const { createFFmpeg, fetchFile } = FFmpeg;
 
+// Локальний corePath можна залишити на CDN 0.11.0 для стабільності
 const ffmpeg = createFFmpeg({
   log: true,
-  corePath: "https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js"
+  corePath: "https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js",
+  logger: ({ type, message }) => {
+    // Виводимо всі логи ffmpeg у блок #log
+    const logEl = document.getElementById("log");
+    logEl.innerText += `[${type}] ${message}\n`;
+    logEl.scrollTop = logEl.scrollHeight; // автоскрол
+  }
 });
 
 const upload = document.getElementById("upload");
 const status = document.getElementById("status");
 const download = document.getElementById("download");
+const logEl = document.getElementById("log");
 const button = document.getElementById("compressBtn");
 
 button.addEventListener("click", async () => {
+
+  logEl.innerText = ""; // очищаємо лог перед стартом
 
   if (!upload.files.length) {
     alert("Оберіть відео");
@@ -50,12 +66,16 @@ button.addEventListener("click", async () => {
 
     const file = upload.files[0];
 
-    ffmpeg.FS("writeFile", "input.mp4", await fetchFile(file));
+    // Автоматично визначаємо розширення
+    const ext = file.name.split('.').pop();
+    const fileName = "input." + ext;
+
+    ffmpeg.FS("writeFile", fileName, await fetchFile(file));
 
     status.innerText = "Стиснення...";
 
     await ffmpeg.run(
-      "-i", "input.mp4",
+      "-i", fileName,
       "-vcodec", "libx264",
       "-crf", "28",
       "-preset", "veryfast",
@@ -78,8 +98,9 @@ button.addEventListener("click", async () => {
     status.innerText = "Готово ✅";
 
   } catch (error) {
-    console.error(error);
-    status.innerText = "Помилка 😢 Спробуй менше відео";
+    // Виводимо будь-які помилки у #log
+    logEl.innerText += `\n[error] ${error.message || error}`;
+    status.innerText = "Помилка 😢 Перевір лог нижче";
   }
 
 });
